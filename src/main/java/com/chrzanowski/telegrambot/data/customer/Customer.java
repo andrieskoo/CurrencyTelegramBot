@@ -1,6 +1,7 @@
 package com.chrzanowski.telegrambot.data.customer;
 
 import com.chrzanowski.telegrambot.data.customersettings.CustomerSettings;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -21,7 +22,9 @@ public class Customer {
     @Column(columnDefinition = "TIMESTAMP")
     private Instant createdAt;
 
-    @OneToOne(fetch = FetchType.EAGER, mappedBy = "customer", cascade = CascadeType.ALL)
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "customer", cascade = CascadeType.ALL)
     @PrimaryKeyJoinColumn
     private CustomerSettings customerSettingsId;
+
+
 }

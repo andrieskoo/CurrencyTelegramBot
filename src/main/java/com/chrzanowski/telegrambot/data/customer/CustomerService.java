@@ -69,6 +69,10 @@ public class CustomerService {
         return customerSettingsService.getCurrencies(customer.getId());
     }
 
+    public List<Customer> getAllCustomers(){
+        return customerRepository.findAll();
+    }
+
     public Bank getCustomerBank(Customer customer){
         return customerSettingsService.getCustomerBank(customer.getId());
     }

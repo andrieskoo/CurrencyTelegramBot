@@ -2,6 +2,8 @@ package com.chrzanowski.telegrambot.data.customersettings;
 
 import com.chrzanowski.telegrambot.banking.Bank;
 import com.chrzanowski.telegrambot.data.currency.Currency;
+import com.chrzanowski.telegrambot.data.customer.Customer;
+import com.chrzanowski.telegrambot.data.customer.CustomerService;
 import org.hibernate.Hibernate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -9,12 +11,8 @@ import java.util.*;
 
 @Service
 public class CustomerSettingsService {
-    private final CustomerSettingsRepository customerSettingsRepository;
-
     @Autowired
-    public CustomerSettingsService(CustomerSettingsRepository customerSettingsRepository) {
-        this.customerSettingsRepository = customerSettingsRepository;
-    }
+    private CustomerSettingsRepository customerSettingsRepository;
 
     public CustomerSettings saveCustomerSettings(CustomerSettings customerSettings){
         return customerSettingsRepository.save(customerSettings);
@@ -46,6 +44,10 @@ public class CustomerSettingsService {
     public CustomerSettings getCustomerSettingsById(Long id){
         return customerSettingsRepository.findById(id).orElse(null);
     }
+//    public CustomerSettings getCustomerSettingsByCustomerTelegramId(Long id){
+//        Customer customer = customerService.getCustomerByTelegramId(id);
+//        return customerSettingsRepository.findById(customer.getId()).orElse(null);
+//    }
 
     public List<Currency> getCurrencies(Long id){
         CustomerSettings customerSettings = getCustomerSettingsById(id);

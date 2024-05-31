@@ -11,12 +11,15 @@ import com.chrzanowski.telegrambot.data.customer.Customer;
 import com.chrzanowski.telegrambot.data.customer.CustomerService;
 import com.chrzanowski.telegrambot.menu.Menu;
 import com.chrzanowski.telegrambot.menu.MenuButtons;
+import com.chrzanowski.telegrambot.notification.NotificationSchedulerService;
 import com.chrzanowski.telegrambot.settings.BankButtons;
 import com.chrzanowski.telegrambot.settings.CurrencyButtons;
 import com.chrzanowski.telegrambot.settings.NotificationButtons;
 import com.chrzanowski.telegrambot.settings.SettingsButtons;
+import org.quartz.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
@@ -26,6 +29,7 @@ import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.util.List;
+import java.util.Locale;
 
 
 @Component
@@ -38,19 +42,27 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
 
     private final SendMessage sendMessage = new SendMessage();
     private final EditMessageText editMessageText = new EditMessageText();
-    private final CurrencyService currencyService;
-    private final CustomerService customerService;
+    private CurrencyService currencyService;
+    private CustomerService customerService;
+    private MessageSource messageSource;
+    private NotificationSchedulerService notificationSchedulerService;
+
     private Customer customer;
 
 
     @Autowired
-    public CurrencyBot(CustomerService customerService, CurrencyService currencyService) {
+    public CurrencyBot(CustomerService customerService,
+                       CurrencyService currencyService,
+                       MessageSource messageSource,
+                       NotificationSchedulerService notificationSchedulerService) {
         register(new GetRateCommand());
         register(new MenuCommand());
-        register(new StartCommand(customerService));
+        register(new StartCommand(customerService, notificationSchedulerService));
 
+        this.messageSource = messageSource;
         this.currencyService = currencyService;
         this.customerService = customerService;
+        this.notificationSchedulerService = notificationSchedulerService;
     }
 
     @Override
@@ -107,6 +119,11 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
                 newHour = null;
             }
             customerService.setCustomerNotificationHour(customer, newHour);
+            try {
+                notificationSchedulerService.updateScheduledJob(customer.getTelegramId(), newHour);
+            } catch (SchedulerException e) {
+                throw new RuntimeException(e);
+            }
             customerNotificationHour = customerService.getCustomerNotificationHour(customer);
 
         }
@@ -128,10 +145,10 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
             }
             customerBank = customerService.getCustomerBank(customer);
         }
-
+String textMessage = messageSource.getMessage("chosebank.message", null, Locale.forLanguageTag("uk"));
         editMessageText.setChatId(getChatId(update));
         editMessageText.setMessageId(getMessageId(update));
-        editMessageText.setText("Виберіть банк з якого отримувати курс валют ☺️");
+        editMessageText.setText(textMessage);
         editMessageText.setReplyMarkup(BankButtons.setButtons(customerBank));
         editMessageText.setParseMode(ParseMode.HTML);
         sendMessage(editMessageText);
@@ -205,7 +222,7 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
         return null;
     }
 
-    private void sendMessage(SendMessage message) {
+    public void sendMessage(SendMessage message) {
         if (message != null) {
             try {
                 execute(message);
@@ -215,7 +232,7 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
         }
     }
 
-    private void sendMessage(EditMessageText message) {
+    public void sendMessage(EditMessageText message) {
         if (message != null) {
             try {
                 execute(message);

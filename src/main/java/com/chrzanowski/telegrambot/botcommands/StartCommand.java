@@ -4,6 +4,9 @@ package com.chrzanowski.telegrambot.botcommands;
 import com.chrzanowski.telegrambot.data.customer.CustomerService;
 import com.chrzanowski.telegrambot.data.customer.Customer;
 import com.chrzanowski.telegrambot.menu.MenuButtons;
+import com.chrzanowski.telegrambot.notification.NotificationSchedulerService;
+import lombok.extern.slf4j.Slf4j;
+import org.quartz.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.commands.BotCommand;
@@ -13,15 +16,19 @@ import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+@Slf4j
 @Component
 public class StartCommand extends BotCommand  {
 
-    CustomerService customerService;
+    private final CustomerService customerService;
+
+    private final NotificationSchedulerService notificationSchedulerService;
 
     @Autowired
-    public StartCommand(CustomerService customerService) {
+    public StartCommand(CustomerService customerService, NotificationSchedulerService notificationSchedulerService) {
         super("start", "Start command");
         this.customerService = customerService;
+        this.notificationSchedulerService = notificationSchedulerService;
 
     }
 
@@ -40,6 +47,14 @@ public class StartCommand extends BotCommand  {
         customer.setIsPremium(user.getIsPremium());
 
         customerService.saveCustomer(customer);
+
+        try {
+            notificationSchedulerService.init();
+        } catch (SchedulerException e) {
+            log.error("Can't start notification scheduler {}", e.getMessage() );
+            throw new RuntimeException(e);
+        }
+
         SendMessage message = new SendMessage();
         message.setText("Welcome!");
         message.setChatId(chat.getId());

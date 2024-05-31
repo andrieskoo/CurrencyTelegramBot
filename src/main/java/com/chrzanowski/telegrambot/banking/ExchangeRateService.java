@@ -6,8 +6,11 @@ import com.chrzanowski.telegrambot.banking.nbu.NBUService;
 import com.chrzanowski.telegrambot.banking.privatbank.PrivatBankService;
 import com.chrzanowski.telegrambot.data.currency.Currency;
 import com.chrzanowski.telegrambot.data.customersettings.CustomerSettings;
+import org.springframework.stereotype.Service;
+
 import java.util.List;
 
+@Service
 public class ExchangeRateService {
     public String getMessageRate(CustomerSettings settings) {
         StringBuilder sb = new StringBuilder("Курс на сьогодні у *" + settings.getBank() + "* : \n\n");
