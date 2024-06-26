@@ -3,10 +3,8 @@ package com.chrzanowski.telegrambot.settings;
 import com.chrzanowski.telegrambot.data.currency.Currency;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+
+import java.util.*;
 
 import static com.chrzanowski.telegrambot.settings.BankButtons.getInlineKeyboardButtons;
 
@@ -14,7 +12,7 @@ import static com.chrzanowski.telegrambot.settings.BankButtons.getInlineKeyboard
 public class CurrencyButtons {
     private static final Set<Currency> selectedCurrency = new HashSet<>();
 
-    public static InlineKeyboardMarkup setButtons(List<Currency> customerCurrencyList, List<Currency> currencyList) {
+    public static InlineKeyboardMarkup setButtons(List<Currency> customerCurrencyList, List<Currency> currencyList, Locale locale) {
         List<List<InlineKeyboardButton>> keyboardList = new ArrayList<>();
         selectedCurrency.clear();
         selectedCurrency.addAll(customerCurrencyList);
@@ -37,7 +35,7 @@ public class CurrencyButtons {
             keyboardList.add(keyboardButtonsRow);
         }
 
-        keyboardList.add(previousMenu());
+        keyboardList.add(previousMenu(locale));
 
             return InlineKeyboardMarkup
                     .builder()
@@ -45,8 +43,8 @@ public class CurrencyButtons {
                     .build();
     }
 
-    private static List<InlineKeyboardButton> previousMenu() {
-        return getInlineKeyboardButtons();
+    private static List<InlineKeyboardButton> previousMenu(Locale locale) {
+        return getInlineKeyboardButtons(locale);
     }
 
     private static InlineKeyboardButton createCurrencyButton(Currency currency) {

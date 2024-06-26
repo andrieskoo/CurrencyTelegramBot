@@ -5,10 +5,12 @@ import com.chrzanowski.telegrambot.data.currency.Currency;
 import com.chrzanowski.telegrambot.data.currency.CurrencyService;
 import com.chrzanowski.telegrambot.data.customersettings.CustomerSettings;
 import com.chrzanowski.telegrambot.data.customersettings.CustomerSettingsService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.List;
 
+@Slf4j
 @Service
 public class CustomerService {
     private final CustomerRepository customerRepository;
@@ -32,23 +34,28 @@ public class CustomerService {
 
 
     public Customer saveCustomer(Customer user){
-        Customer customer = customerRepository.save(user);
-        CustomerSettings customerSettings = new CustomerSettings();
-        customerSettings.setCustomerId(customer.getId());
-        customerSettings.setCustomer(customer);
-        customerSettings.setBaseCurrency(getDefaultCurrency(customer.getLanguageCode()));
-
-        customerSettings.setCurrencies(List.of(currencyService.getCurrencyByIso4217Code(840),currencyService.getCurrencyByIso4217Code(978)));
-
-        if (customer.getLanguageCode().equals("pl")){
-            customerSettings.setBank(Bank.NBP);
+        if (customerRepository.existsCustomerByTelegramId(user.getTelegramId())){
+            log.error("Error saving customer, reason: customer with telegram id={} already exists", user.getTelegramId());
+            return customerRepository.findCustomerByTelegramId(user.getTelegramId());
         }
         else {
-            customerSettings.setBank(Bank.PRIVATBANK);
-        }
-        customerSettingsService.saveCustomerSettings(customerSettings);
+            Customer customer = customerRepository.save(user);
+            CustomerSettings customerSettings = new CustomerSettings();
+            customerSettings.setCustomerId(customer.getId());
+            customerSettings.setCustomer(customer);
+            customerSettings.setBaseCurrency(getDefaultCurrency(customer.getLanguageCode()));
 
-        return customer;
+            customerSettings.setCurrencies(List.of(currencyService.getCurrencyByIso4217Code(840), currencyService.getCurrencyByIso4217Code(978)));
+
+            if (customer.getLanguageCode().equals("pl")) {
+                customerSettings.setBank(Bank.NBP);
+            } else {
+                customerSettings.setBank(Bank.PRIVATBANK);
+            }
+            customerSettingsService.saveCustomerSettings(customerSettings);
+
+            return customer;
+        }
     }
 
     public Currency getBaseCurrency(Long id){

@@ -1,44 +1,55 @@
 package com.chrzanowski.telegrambot.settings;
 
 import com.chrzanowski.telegrambot.menu.Menu;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.MessageSource;
+import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
+@Component
 public class SettingsButtons {
-    public static InlineKeyboardMarkup setButtons() {
+
+    private static MessageSource messageSource;
+
+    @Autowired
+    public SettingsButtons(MessageSource messageSource){
+        SettingsButtons.messageSource = messageSource;
+    }
+    public static InlineKeyboardMarkup setButtons(Locale locale) {
         List<InlineKeyboardButton> keyboardButtonsRow1 = new ArrayList<>();
         List<InlineKeyboardButton> keyboardButtonsRow2 = new ArrayList<>();
         List<InlineKeyboardButton> keyboardButtonsRow3 = new ArrayList<>();
 
         InlineKeyboardButton buttonBank = InlineKeyboardButton
                 .builder()
-                .text("Банк \uD83C\uDFDB")
+                .text(messageSource.getMessage("bank.buttontext", null, locale))
                 .callbackData(Menu.BANK.name())
                 .build();
 
         InlineKeyboardButton buttonCurrency = InlineKeyboardButton
                 .builder()
-                .text("Валюта \uD83D\uDCB5\uD83D\uDCB6")
+                .text(messageSource.getMessage("exchange.buttontext", null, locale))
                 .callbackData(Menu.CURRENCY.name())
                 .build();
 
         InlineKeyboardButton buttonNotification = InlineKeyboardButton
                 .builder()
-                .text("Сповіщення ⏰")
+                .text(messageSource.getMessage("notification.buttontext", null, locale))
                 .callbackData(Menu.NOTIFICATION.name())
                 .build();
 
         InlineKeyboardButton buttonPrevMenu = InlineKeyboardButton
                 .builder()
-                .text("Курс валют \uD83C\uDFDB")
+                .text(messageSource.getMessage("exchangerate.buttontext", null, locale))
                 .callbackData(Menu.GETRATE.name())
                 .build();
         InlineKeyboardButton buttonMainMenu = InlineKeyboardButton
                 .builder()
-                .text("Головне меню \uD83C\uDFE0")
+                .text(messageSource.getMessage("mainmenu.buttontext", null, locale))
                 .callbackData(Menu.START.name())
                 .build();
 

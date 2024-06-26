@@ -44,3 +44,6 @@ CREATE TABLE IF NOT EXISTS customer_settings_currency (
 
 ALTER TABLE public.customer_settings_currency ADD CONSTRAINT fkeqc5uc7hv81tid9rcriib97hd FOREIGN KEY (iso4217code) REFERENCES public.currency(iso4217code);
 ALTER TABLE public.customer_settings_currency ADD CONSTRAINT fklcj0ba06yeueynsmndrahbckw FOREIGN KEY (customer_id) REFERENCES public.customer_settings(customer_id);
+
+
+

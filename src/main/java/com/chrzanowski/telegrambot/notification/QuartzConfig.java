@@ -1,16 +1,21 @@
 package com.chrzanowski.telegrambot.notification;
 
+import lombok.extern.slf4j.Slf4j;
 import org.quartz.spi.TriggerFiredBundle;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
+import org.springframework.boot.autoconfigure.quartz.SchedulerFactoryBeanCustomizer;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.quartz.SchedulerFactoryBean;
 import org.springframework.scheduling.quartz.SpringBeanJobFactory;
-import org.springframework.stereotype.Component;
+import java.util.Properties;
 
-@Component
+@Slf4j
+@Configuration
 public class QuartzConfig {
-    @Autowired
+
+        @Autowired
     private AutowireCapableBeanFactory beanFactory;
 
     @Bean
@@ -26,9 +31,23 @@ public class QuartzConfig {
     }
 
     @Bean
-    public SchedulerFactoryBean schedulerFactoryBean(SpringBeanJobFactory springBeanJobFactory) {
-        SchedulerFactoryBean schedulerFactoryBean = new SchedulerFactoryBean();
-        schedulerFactoryBean.setJobFactory(springBeanJobFactory);
-        return schedulerFactoryBean;
+    public SchedulerFactoryBeanCustomizer schedulerFactoryBeanCustomizer()
+    {
+        return new SchedulerFactoryBeanCustomizer()
+        {
+            @Override
+            public void customize(SchedulerFactoryBean bean)
+            {
+                bean.setQuartzProperties(createQuartzProperties());
+            }
+        };
     }
+
+    private Properties createQuartzProperties()
+    {
+        Properties props = new Properties();
+        props.put("org.quartz.jobStore.driverDelegateClass", "org.quartz.impl.jdbcjobstore.PostgreSQLDelegate");
+        return props;
+    }
+
 }

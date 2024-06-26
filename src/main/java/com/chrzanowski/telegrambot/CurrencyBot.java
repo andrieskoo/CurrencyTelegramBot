@@ -16,6 +16,7 @@ import com.chrzanowski.telegrambot.settings.BankButtons;
 import com.chrzanowski.telegrambot.settings.CurrencyButtons;
 import com.chrzanowski.telegrambot.settings.NotificationButtons;
 import com.chrzanowski.telegrambot.settings.SettingsButtons;
+import lombok.extern.slf4j.Slf4j;
 import org.quartz.SchedulerException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,15 +24,18 @@ import org.springframework.context.MessageSource;
 import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.extensions.bots.commandbot.TelegramLongPollingCommandBot;
 import org.telegram.telegrambots.meta.api.methods.ParseMode;
+import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.Update;
+import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-
+@Slf4j
 @Component
 public class CurrencyBot extends TelegramLongPollingCommandBot {
 
@@ -45,7 +49,11 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
     private CurrencyService currencyService;
     private CustomerService customerService;
     private MessageSource messageSource;
+
+    private ExchangeRateService exchangeRateService;
     private NotificationSchedulerService notificationSchedulerService;
+
+    Locale languageLocale = Locale.getDefault();
 
     private Customer customer;
 
@@ -54,15 +62,17 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
     public CurrencyBot(CustomerService customerService,
                        CurrencyService currencyService,
                        MessageSource messageSource,
-                       NotificationSchedulerService notificationSchedulerService) {
+                       NotificationSchedulerService notificationSchedulerService,
+                       ExchangeRateService exchangeRateService) {
         register(new GetRateCommand());
         register(new MenuCommand());
-        register(new StartCommand(customerService, notificationSchedulerService));
+        register(new StartCommand(customerService, notificationSchedulerService, messageSource));
 
         this.messageSource = messageSource;
         this.currencyService = currencyService;
         this.customerService = customerService;
         this.notificationSchedulerService = notificationSchedulerService;
+        this.exchangeRateService = exchangeRateService;
     }
 
     @Override
@@ -74,8 +84,8 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
     @Override
     public void processNonCommandUpdate(Update update) {
         Long chatId = getChatId(update);
-
         sendMessage.setChatId(chatId);
+        languageLocale = Locale.forLanguageTag(getLocale(update));
 
         if (customer == null) {
             customer = getCustomer(chatId);
@@ -84,14 +94,13 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
 
         if (update.hasCallbackQuery()) {
             String callBackQuery = update.getCallbackQuery().getData();
-
             System.out.println("Button pressed = " + callBackQuery);
             System.out.println("chatId = " + chatId);
             String[] menu = callBackQuery.split("_");
             switch (Menu.valueOf(menu[0])) {
-                case START -> performStart();
+                case START -> performStart(update);
                 case GETRATE -> performGetRate();
-                case SETTINGS -> performSettings();
+                case SETTINGS -> performSettings(update);
                 case BANK -> performBank(update, menu);
                 case CURRENCY -> performCallBackCurrency(update, menu);
                 case NOTIFICATION -> performNotificationCallBack(update, menu);
@@ -102,7 +111,7 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
         }
 
         if (update.hasMessage()) {
-            String responseText = "На жаль, ви ввели невірну команду, будь-ласка, оберіть іншу \uD83D\uDE0A";
+            String responseText = messageSource.getMessage("incorrect.message", null, languageLocale);
             sendMessage.setText(responseText);
             sendMessage.setChatId(update.getMessage().getChatId());
             sendMessage(sendMessage);
@@ -112,10 +121,11 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
 
     private void performNotificationCallBack(Update update, String[] menu) {
         Integer customerNotificationHour = customerService.getCustomerNotificationHour(customer);
+        Locale languageLocale = Locale.forLanguageTag(getLocale(update));
 
-        if (menu.length>1){
+        if (menu.length > 1) {
             Integer newHour = Integer.parseInt(menu[1]);
-            if (newHour == -1){
+            if (newHour == -1) {
                 newHour = null;
             }
             customerService.setCustomerNotificationHour(customer, newHour);
@@ -129,14 +139,13 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
         }
         editMessageText.setChatId(getChatId(update));
         editMessageText.setMessageId(getMessageId(update));
-        editMessageText.setText("Виберіть, час коли Ви бажаєте отримувати сповіщення");
-        editMessageText.setReplyMarkup(NotificationButtons.setButtons(customerNotificationHour));
+        editMessageText.setText(messageSource.getMessage("chosetime.message", null, languageLocale));
+        editMessageText.setReplyMarkup(NotificationButtons.setButtons(customerNotificationHour, languageLocale));
         editMessageText.setParseMode(ParseMode.HTML);
         sendMessage(editMessageText);
     }
 
     private void performBank(Update update, String[] menu) {
-
         Bank customerBank = customerService.getCustomerBank(customer);
         if (menu.length > 1) {
             Bank bank = Bank.valueOf(menu[1]);
@@ -145,29 +154,29 @@ public class CurrencyBot extends TelegramLongPollingCommandBot {
             }
             customerBank = customerService.getCustomerBank(customer);
         }
-String textMessage = messageSource.getMessage("chosebank.message", null, Locale.forLanguageTag("uk"));
+        String textMessage = messageSource.getMessage("chosebank.message", null, languageLocale);
         editMessageText.setChatId(getChatId(update));
         editMessageText.setMessageId(getMessageId(update));
         editMessageText.setText(textMessage);
-        editMessageText.setReplyMarkup(BankButtons.setButtons(customerBank));
+        editMessageText.setReplyMarkup(BankButtons.setButtons(customerBank, languageLocale));
         editMessageText.setParseMode(ParseMode.HTML);
         sendMessage(editMessageText);
     }
 
-    private void performSettings() {
-        sendMessage.setText("Виберіть налаштування які хочете змінити ☺️");
-        sendMessage.setReplyMarkup(SettingsButtons.setButtons());
+    private void performSettings(Update update) {
+        sendMessage.setText(messageSource.getMessage("chosesettings.message", null, languageLocale));
+        sendMessage.setReplyMarkup(SettingsButtons.setButtons(languageLocale));
         sendMessage(sendMessage);
     }
 
-    private void performStart() {
-        sendMessage.setText("Ви знаходитесь на головному меню! Оберіть, будь-ласка, дію ☺️");
-        sendMessage.setReplyMarkup(MenuButtons.setButtons());
+    private void performStart(Update update) {
+        sendMessage.setText(messageSource.getMessage("choseaction.message", null, Locale.forLanguageTag(getLocale(update))));
+        sendMessage.setReplyMarkup(MenuButtons.setButtons(languageLocale));
         sendMessage(sendMessage);
     }
 
     private void performGetRate() {
-        sendMessage.setText(new ExchangeRateService().getMessageRate(customerService.getCustomerSettings(customer)));
+        sendMessage.setText(exchangeRateService.getMessageRate(customerService.getCustomerSettings(customer), languageLocale));
         sendMessage(sendMessage);
     }
 
@@ -189,8 +198,14 @@ String textMessage = messageSource.getMessage("chosebank.message", null, Locale.
 
         editMessageText.setChatId(getChatId(update));
         editMessageText.setMessageId(getMessageId(update));
-        editMessageText.setText("Виберіть валюти, курс яких Ви бажаєте отримувати");
-        editMessageText.setReplyMarkup(CurrencyButtons.setButtons(customerCurrencyList, currencyList));
+        editMessageText.setText(
+                messageSource.getMessage(
+                        "choseexchange.message",
+                        null,
+                        Locale.forLanguageTag(getLocale(update)
+                        ))
+        );
+        editMessageText.setReplyMarkup(CurrencyButtons.setButtons(customerCurrencyList, currencyList, languageLocale));
         editMessageText.setParseMode(ParseMode.HTML);
         sendMessage(editMessageText);
     }
@@ -217,6 +232,7 @@ String textMessage = messageSource.getMessage("chosebank.message", null, Locale.
 
     private Integer getMessageId(Update update) {
         if (update.hasCallbackQuery()) {
+
             return update.getCallbackQuery().getMessage().getMessageId();
         }
         return null;
@@ -238,6 +254,36 @@ String textMessage = messageSource.getMessage("chosebank.message", null, Locale.
                 execute(message);
             } catch (TelegramApiException e) {
                 throw new RuntimeException(e);
+            }
+        }
+    }
+
+
+    private String getLocale(Update update) {
+        String defaultLocale = "uk";
+        if (update.hasCallbackQuery()) {
+            return (getAppropriateLocaleCod(update.getCallbackQuery().getFrom().getLanguageCode()));
+        }
+        if (update.hasMessage()) {
+            return (getAppropriateLocaleCod(update.getMessage().getFrom().getLanguageCode()));
+        }
+        return defaultLocale;
+    }
+
+    public static String getAppropriateLocaleCod(String code) {
+        String defaultLocale = "uk";
+        switch (code) {
+            case "uk" -> {
+                return "uk";
+            }
+            case "pl" -> {
+                return "pl";
+            }
+            case "en" -> {
+                return "en";
+            }
+            default -> {
+                return defaultLocale;
             }
         }
     }
